@@ -20,8 +20,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
         createNotificationChannel()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -43,14 +41,7 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE)
     }
 
-    private fun startOverlayService() {
-        val serviceIntent = Intent(this, OverlayService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
-        }
-    }
+
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -76,9 +67,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
-    public fun btn_clicked( view: View){
-        Toast.makeText(this,"hi",Toast.LENGTH_LONG).show();
-
+    private fun startOverlayService() {
+        val serviceIntent = Intent(this, ScreenBlockService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+        finish() // Close activity after starting service
     }
+
+
 }

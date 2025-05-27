@@ -1,16 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/lockScreenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/holo_purple">
+    android:background="@android:color/transparent"
+    android:clickable="false">
 
      <View
-        android:id="@+id/unlockArea"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        android:layout_gravity="top|start"
-         android:onClick="btn_clicked"
-        android:background="@android:color/transparent" />
-
+         android:id="@+id/unlockArea"
+         android:layout_width="100dp"
+         android:layout_height="100dp"
+         android:layout_gravity="top|start"
+         android:background="@android:color/transparent"
+         android:clickable="true" /> <!-- Only this area should respond to clicks -->
 </FrameLayout>
