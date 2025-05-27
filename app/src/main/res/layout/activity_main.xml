@@ -3,13 +3,14 @@
     android:id="@+id/lockScreenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/transparent">
+    android:background="@android:color/holo_purple">
 
-    <!-- Invisible unlock area (top-left corner) -->
-    <View
+     <View
         android:id="@+id/unlockArea"
         android:layout_width="100dp"
         android:layout_height="100dp"
         android:layout_gravity="top|start"
+         android:onClick="btn_clicked"
         android:background="@android:color/transparent" />
+
 </FrameLayout>
