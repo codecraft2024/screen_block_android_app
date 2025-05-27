@@ -151,10 +151,12 @@ class ScreenBlockService : Service() {
         unlockTapCount++
         lastUnlockTapTime = currentTime
 
-        if (unlockTapCount >= 5 && isLocked) {
+        if (unlockTapCount >= 5 )
+        {
             unlockTapCount = 0
             performUnlock()
-        } else {
+        }
+        else {
             provideHapticFeedback()
         }
     }
