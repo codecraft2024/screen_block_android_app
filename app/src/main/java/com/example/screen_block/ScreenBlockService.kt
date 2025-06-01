@@ -1,49 +1,47 @@
 package com.example.screen_block
 
-import android.annotation.SuppressLint
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.util.DisplayMetrics
 import android.util.Log
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
 
+class ScreenBlockService : Service(), SensorEventListener {
 
-class ScreenBlockService : Service() {
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
-    private var unlockTapCount = 0
-    private var lockTapCount = 0
-    private var lastUnlockTapTime = 0L
-    private var lastLockTapTime = 0L
-    private var isLocked = true
+    private var isLocked = false
+
+    private lateinit var sensorManager: SensorManager
+    private var lastShakeTime = 0L
 
     companion object {
         private const val NOTIFICATION_ID = 1234
         private const val CHANNEL_ID = "screen_block_channel"
-        private const val CORNER_SIZE_DP = 100
+        private const val SHAKE_THRESHOLD_GRAVITY = 2.7f
+        private const val SHAKE_SLOP_TIME_MS = 1000
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    @SuppressLint("ForegroundServiceType")
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         startForegroundService()
         setupOverlay()
+        setupShakeDetection()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -53,9 +51,7 @@ class ScreenBlockService : Service() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Screen Block Service",
-                NotificationManager.IMPORTANCE_LOW
+                CHANNEL_ID, "Screen Block Service", NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Keeps screen lock active"
             }
@@ -64,11 +60,10 @@ class ScreenBlockService : Service() {
         }
     }
 
-    @SuppressLint("ForegroundServiceType")
     private fun startForegroundService() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Screen Lock Active")
-            .setContentText("Tap corners to lock/unlock")
+            .setContentText("Shake to lock/unlock")
             .setSmallIcon(com.google.android.material.R.drawable.abc_btn_borderless_material)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
@@ -78,7 +73,6 @@ class ScreenBlockService : Service() {
         startForeground(NOTIFICATION_ID, notification)
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private fun setupOverlay() {
         if (overlayView != null) return
 
@@ -104,87 +98,52 @@ class ScreenBlockService : Service() {
         }
 
         windowManager.addView(overlayView, params)
-        setupTouchListener()
     }
 
-    private fun setupTouchListener() {
-        overlayView?.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                handleTouchEvent(event)
+    private fun setupShakeDetection() {
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI)
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event == null) return
+
+        val x = event.values[0]
+        val y = event.values[1]
+        val z = event.values[2]
+
+        val gX = x / SensorManager.GRAVITY_EARTH
+        val gY = y / SensorManager.GRAVITY_EARTH
+        val gZ = z / SensorManager.GRAVITY_EARTH
+
+        val gForce = Math.sqrt((gX * gX + gY * gY + gZ * gZ).toDouble()).toFloat()
+
+        if (gForce > SHAKE_THRESHOLD_GRAVITY) {
+            val now = System.currentTimeMillis()
+            if (lastShakeTime + SHAKE_SLOP_TIME_MS > now) return
+            lastShakeTime = now
+
+
+            if (isLocked) {
+                performUnlock()
+            } else {
+                performLock()
             }
-            true
         }
     }
 
-    private fun handleTouchEvent(event: MotionEvent) {
-        val metrics = DisplayMetrics()
-        windowManager.defaultDisplay.getMetrics(metrics)
-        val cornerSizePx = (CORNER_SIZE_DP * metrics.density).toInt()
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
 
-        when {
-            isInTopRightCorner(event.rawX, event.rawY, metrics, cornerSizePx) ->
-                handleUnlockTaps()
-            isInTopLeftCorner(event.rawX, event.rawY, cornerSizePx) ->
-                handleLockTaps()
-        }
-    }
-
-    private fun isInTopRightCorner(x: Float, y: Float, metrics: DisplayMetrics, cornerSize: Int): Boolean {
-        Log.d("mina", "isInTopRightCorner: ${x >= metrics.widthPixels - cornerSize && y <= cornerSize}")
-        return x >= metrics.widthPixels - cornerSize && y <= cornerSize
-    }
-
-    private fun isInTopLeftCorner(x: Float, y: Float, cornerSize: Int): Boolean {
-        Log.d("mina", "isInTopLeftCorner: ${x <= cornerSize && y <= cornerSize}")
-
-        return x <= cornerSize && y <= cornerSize
-    }
-
-    private fun handleUnlockTaps() {
-        Log.d("mina", "handleUnlockTaps: ")
-        val currentTime = System.currentTimeMillis()
-
-        if (currentTime - lastUnlockTapTime > 10000) {
-            unlockTapCount = 0
-        }
-
-        unlockTapCount++
-        lastUnlockTapTime = currentTime
-
-        if (unlockTapCount >= 5 )
-        {
-            unlockTapCount = 0
-            performUnlock()
-        }
-        else {
-            provideHapticFeedback()
-        }
-    }
-
-    private fun handleLockTaps() {
-        Log.d("mina", "handleLockTaps: ")
-        val currentTime = System.currentTimeMillis()
-
-        if (currentTime - lastLockTapTime > 10000) {
-            lockTapCount = 0
-        }
-
-        lockTapCount++
-        lastLockTapTime = currentTime
-
-        if (lockTapCount >= 5 && !isLocked) {
-            lockTapCount = 0
-            performLock()
-        } else {
-            provideHapticFeedback()
-        }
     }
 
     private fun performUnlock() {
-        Log.d("mina", "performUnlock: ")
-
+        if (!isLocked) return
         isLocked = false
-        Utils.showToast(this, "Screen Unlocked")
+
+        Log.d("mina", "Screen Unlocked")
+        Utils.showNotification(this, "Screen Unlocked")
+
         try {
             overlayView?.let {
                 windowManager.removeView(it)
@@ -196,22 +155,12 @@ class ScreenBlockService : Service() {
     }
 
     private fun performLock() {
-        Log.d("mina", "performLock: ")
-
+        if (isLocked) return
         isLocked = true
-        Utils.showToast(this, "Screen Locked")
-        setupOverlay()
-    }
 
-    private fun provideHapticFeedback() {
-        Toast.makeText(applicationContext, "touch", Toast.LENGTH_SHORT).show()
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(30)
-        }
+        Log.d("mina", "Screen Locked")
+        Utils.showNotification(this, "Screen Locked")
+        setupOverlay()
     }
 
     override fun onDestroy() {
@@ -223,5 +172,7 @@ class ScreenBlockService : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+
+        sensorManager.unregisterListener(this)
     }
 }
