@@ -1,8 +1,9 @@
 package com.example.screen_block
 
-
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
@@ -11,11 +12,14 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 
 class ScreenBlockService : Service(), SensorEventListener {
@@ -25,28 +29,29 @@ class ScreenBlockService : Service(), SensorEventListener {
     private var isLocked = false
 
     private lateinit var sensorManager: SensorManager
+
     private var lastShakeTime = 0L
 
     companion object {
         private const val NOTIFICATION_ID = 1234
         private const val CHANNEL_ID = "screen_block_channel"
         private const val SHAKE_THRESHOLD_GRAVITY = 2.7f
-        private const val SHAKE_SLOP_TIME_MS = 1000
+        private const val SHAKE_SLOP_TIME_MS = 3000
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        Log.d("mina", "onCreate:ScreenBlockService")
+
         createNotificationChannel()
         startForegroundService()
         setupOverlay()
         setupShakeDetection()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return START_STICKY
-    }
+
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -60,17 +65,42 @@ class ScreenBlockService : Service(), SensorEventListener {
         }
     }
 
+    @SuppressLint("ForegroundServiceType")
     private fun startForegroundService() {
+        val unlockIntent = PendingIntent.getService(
+            this,
+            0,
+            Intent(this, ScreenBlockService::class.java).apply {
+                action = "UNLOCK_ACTION"
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Screen Lock Active")
             .setContentText("Shake to lock/unlock")
             .setSmallIcon(com.google.android.material.R.drawable.abc_btn_borderless_material)
+            .addAction(
+                NotificationCompat.Action.Builder(
+                    null,
+                    "Unlock",
+                    unlockIntent
+                ).build()
+            )
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setSilent(true)
             .build()
 
         startForeground(NOTIFICATION_ID, notification)
+    }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.action?.let {
+            when (it) {
+                "UNLOCK_ACTION" -> performUnlock()
+            }
+        }
+        return START_STICKY
     }
 
     private fun setupOverlay() {
@@ -82,15 +112,9 @@ class ScreenBlockService : Service(), SensorEventListener {
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         ).apply {
             alpha = 0.1f
@@ -141,8 +165,9 @@ class ScreenBlockService : Service(), SensorEventListener {
         if (!isLocked) return
         isLocked = false
 
-        Log.d("mina", "Screen Unlocked")
-        Utils.showNotification(this, "Screen Unlocked")
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(applicationContext, "Screen Unlocked", Toast.LENGTH_SHORT).show()
+        }
 
         try {
             overlayView?.let {
@@ -158,8 +183,10 @@ class ScreenBlockService : Service(), SensorEventListener {
         if (isLocked) return
         isLocked = true
 
-        Log.d("mina", "Screen Locked")
-        Utils.showNotification(this, "Screen Locked")
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(applicationContext, "Screen Locked", Toast.LENGTH_SHORT).show()
+        }
+
         setupOverlay()
     }
 

@@ -1,4 +1,4 @@
-package com.example.screen_block
+package com.example.screen_block.Utils
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
