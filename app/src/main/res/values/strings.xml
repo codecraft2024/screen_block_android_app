@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">screen_block</string>
+    <string name="app_name">Baby Touch Lock</string>
+    <string name="screen_locked">screen touch locked , please shake again to re-activate</string>
+    <string name="screen_unlocked">screen touch un-locked</string>
 </resources>

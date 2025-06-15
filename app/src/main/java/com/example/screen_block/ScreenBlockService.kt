@@ -15,7 +15,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
@@ -27,9 +26,7 @@ class ScreenBlockService : Service(), SensorEventListener {
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
     private var isLocked = false
-
     private lateinit var sensorManager: SensorManager
-
     private var lastShakeTime = 0L
 
     companion object {
@@ -43,15 +40,11 @@ class ScreenBlockService : Service(), SensorEventListener {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d("mina", "onCreate:ScreenBlockService")
-
         createNotificationChannel()
         startForegroundService()
         setupOverlay()
         setupShakeDetection()
     }
-
-
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -68,32 +61,25 @@ class ScreenBlockService : Service(), SensorEventListener {
     @SuppressLint("ForegroundServiceType")
     private fun startForegroundService() {
         val unlockIntent = PendingIntent.getService(
-            this,
-            0,
-            Intent(this, ScreenBlockService::class.java).apply {
+            this, 0, Intent(this, ScreenBlockService::class.java).apply {
                 action = "UNLOCK_ACTION"
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Screen Lock Active")
-            .setContentText("Shake to lock/unlock")
-            .setSmallIcon(com.google.android.material.R.drawable.abc_btn_borderless_material)
-            .addAction(
-                NotificationCompat.Action.Builder(
-                    null,
-                    "Unlock",
-                    unlockIntent
-                ).build()
-            )
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .setSilent(true)
-            .build()
+        val notification =
+            NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle("Screen Lock Active")
+                .setContentText("Shake to lock/unlock")
+                .setSmallIcon(com.google.android.material.R.drawable.abc_btn_borderless_material)
+                .addAction(
+                    NotificationCompat.Action.Builder(
+                        null, "Unlock", unlockIntent
+                    ).build()
+                ).setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true).setSilent(true)
+                .build()
 
         startForeground(NOTIFICATION_ID, notification)
     }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.action?.let {
             when (it) {
@@ -148,7 +134,6 @@ class ScreenBlockService : Service(), SensorEventListener {
             if (lastShakeTime + SHAKE_SLOP_TIME_MS > now) return
             lastShakeTime = now
 
-
             if (isLocked) {
                 performUnlock()
             } else {
@@ -166,7 +151,7 @@ class ScreenBlockService : Service(), SensorEventListener {
         isLocked = false
 
         Handler(Looper.getMainLooper()).post {
-            Toast.makeText(applicationContext, "Screen Unlocked", Toast.LENGTH_SHORT).show()
+            Toast.makeText(applicationContext, R.string.screen_unlocked, Toast.LENGTH_LONG).show()
         }
 
         try {
@@ -184,7 +169,7 @@ class ScreenBlockService : Service(), SensorEventListener {
         isLocked = true
 
         Handler(Looper.getMainLooper()).post {
-            Toast.makeText(applicationContext, "Screen Locked", Toast.LENGTH_SHORT).show()
+            Toast.makeText(applicationContext, R.string.screen_locked, Toast.LENGTH_LONG).show()
         }
 
         setupOverlay()

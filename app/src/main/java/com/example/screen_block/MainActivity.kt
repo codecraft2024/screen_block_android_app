@@ -23,18 +23,12 @@ class MainActivity : AppCompatActivity() {
         private const val OVERLAY_PERMISSION_REQUEST_CODE = 1001
     }
 
-    private val messageObserver = Observer<String?> { message ->
-        message?.let {
-            Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
-            MessageLiveData.value = null
-        }
-    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d("mina", "onCreate:MainActivity ")
         createNotificationChannel()
-        MessageLiveData.observe(this, messageObserver)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!Settings.canDrawOverlays(this)) {
@@ -58,7 +52,7 @@ class MainActivity : AppCompatActivity() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "overlay_channel", "Overlay Service", NotificationManager.IMPORTANCE_LOW
+                "overlay_channel", "Overlay Service", NotificationManager.IMPORTANCE_HIGH
             )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
@@ -86,11 +80,6 @@ class MainActivity : AppCompatActivity() {
             startService(serviceIntent)
         }
         finish()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        //MessageLiveData.removeObserver(messageObserver)
     }
 
 }

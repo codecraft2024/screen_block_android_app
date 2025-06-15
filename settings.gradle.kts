@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "screen_block"
+rootProject.name = "Baby Touch Lock"
 include(":app")
  
